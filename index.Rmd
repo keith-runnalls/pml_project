@@ -1,0 +1,413 @@
+---
+title: "Weight Lifting Exercise Machine Learning Analysis"
+author: "Keith R"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Summary
+The objective of this project is to predict the "classe" variable, a measure of weight lifting performance quality. A random forest model was fit using 57 predictor variables. The final model was tuned to use 31 random variables at each split. The out of sample accuracy was estimated to be 99.9% using 5-fold cross validation. The predicted values for 20 test cases are presented next to their corresponding problem ID at the end of the report.
+
+## Load packages and import data
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(randomForest)
+library(caret)
+```
+
+Import training data, manually specify column types
+```{r message=FALSE, warning=FALSE}
+training <- read_csv("data/pml-training.csv", 
+  col_types = cols(
+  ...1 = col_double(),
+  user_name = col_character(),
+  raw_timestamp_part_1 = col_double(),
+  raw_timestamp_part_2 = col_double(),
+  cvtd_timestamp = col_character(),
+  new_window = col_character(),
+  num_window = col_double(),
+  roll_belt = col_double(),
+  pitch_belt = col_double(),
+  yaw_belt = col_double(),
+  total_accel_belt = col_double(),
+  kurtosis_roll_belt = col_double(),
+  kurtosis_picth_belt = col_double(),
+  kurtosis_yaw_belt = col_double(),
+  skewness_roll_belt = col_double(),
+  skewness_roll_belt.1 = col_double(),
+  skewness_yaw_belt = col_double(),
+  max_roll_belt = col_double(),
+  max_picth_belt = col_double(),
+  max_yaw_belt = col_double(),
+  min_roll_belt = col_double(),
+  min_pitch_belt = col_double(),
+  min_yaw_belt = col_double(),
+  amplitude_roll_belt = col_double(),
+  amplitude_pitch_belt = col_double(),
+  amplitude_yaw_belt = col_double(),
+  var_total_accel_belt = col_double(),
+  avg_roll_belt = col_double(),
+  stddev_roll_belt = col_double(),
+  var_roll_belt = col_double(),
+  avg_pitch_belt = col_double(),
+  stddev_pitch_belt = col_double(),
+  var_pitch_belt = col_double(),
+  avg_yaw_belt = col_double(),
+  stddev_yaw_belt = col_double(),
+  var_yaw_belt = col_double(),
+  gyros_belt_x = col_double(),
+  gyros_belt_y = col_double(),
+  gyros_belt_z = col_double(),
+  accel_belt_x = col_double(),
+  accel_belt_y = col_double(),
+  accel_belt_z = col_double(),
+  magnet_belt_x = col_double(),
+  magnet_belt_y = col_double(),
+  magnet_belt_z = col_double(),
+  roll_arm = col_double(),
+  pitch_arm = col_double(),
+  yaw_arm = col_double(),
+  total_accel_arm = col_double(),
+  var_accel_arm = col_double(),
+  avg_roll_arm = col_double(),
+  stddev_roll_arm = col_double(),
+  var_roll_arm = col_double(),
+  avg_pitch_arm = col_double(),
+  stddev_pitch_arm = col_double(),
+  var_pitch_arm = col_double(),
+  avg_yaw_arm = col_double(),
+  stddev_yaw_arm = col_double(),
+  var_yaw_arm = col_double(),
+  gyros_arm_x = col_double(),
+  gyros_arm_y = col_double(),
+  gyros_arm_z = col_double(),
+  accel_arm_x = col_double(),
+  accel_arm_y = col_double(),
+  accel_arm_z = col_double(),
+  magnet_arm_x = col_double(),
+  magnet_arm_y = col_double(),
+  magnet_arm_z = col_double(),
+  kurtosis_roll_arm = col_double(),
+  kurtosis_picth_arm = col_double(),
+  kurtosis_yaw_arm = col_double(),
+  skewness_roll_arm = col_double(),
+  skewness_pitch_arm = col_double(),
+  skewness_yaw_arm = col_double(),
+  max_roll_arm = col_double(),
+  max_picth_arm = col_double(),
+  max_yaw_arm = col_double(),
+  min_roll_arm = col_double(),
+  min_pitch_arm = col_double(),
+  min_yaw_arm = col_double(),
+  amplitude_roll_arm = col_double(),
+  amplitude_pitch_arm = col_double(),
+  amplitude_yaw_arm = col_double(),
+  roll_dumbbell = col_double(),
+  pitch_dumbbell = col_double(),
+  yaw_dumbbell = col_double(),
+  kurtosis_roll_dumbbell = col_double(),
+  kurtosis_picth_dumbbell = col_double(),
+  kurtosis_yaw_dumbbell = col_double(),
+  skewness_roll_dumbbell = col_double(),
+  skewness_pitch_dumbbell = col_double(),
+  skewness_yaw_dumbbell = col_double(),
+  max_roll_dumbbell = col_double(),
+  max_picth_dumbbell = col_double(),
+  max_yaw_dumbbell = col_double(),
+  min_roll_dumbbell = col_double(),
+  min_pitch_dumbbell = col_double(),
+  min_yaw_dumbbell = col_double(),
+  amplitude_roll_dumbbell = col_double(),
+  amplitude_pitch_dumbbell = col_double(),
+  amplitude_yaw_dumbbell = col_double(),
+  total_accel_dumbbell = col_double(),
+  var_accel_dumbbell = col_double(),
+  avg_roll_dumbbell = col_double(),
+  stddev_roll_dumbbell = col_double(),
+  var_roll_dumbbell = col_double(),
+  avg_pitch_dumbbell = col_double(),
+  stddev_pitch_dumbbell = col_double(),
+  var_pitch_dumbbell = col_double(),
+  avg_yaw_dumbbell = col_double(),
+  stddev_yaw_dumbbell = col_double(),
+  var_yaw_dumbbell = col_double(),
+  gyros_dumbbell_x = col_double(),
+  gyros_dumbbell_y = col_double(),
+  gyros_dumbbell_z = col_double(),
+  accel_dumbbell_x = col_double(),
+  accel_dumbbell_y = col_double(),
+  accel_dumbbell_z = col_double(),
+  magnet_dumbbell_x = col_double(),
+  magnet_dumbbell_y = col_double(),
+  magnet_dumbbell_z = col_double(),
+  roll_forearm = col_double(),
+  pitch_forearm = col_double(),
+  yaw_forearm = col_double(),
+  kurtosis_roll_forearm = col_double(),
+  kurtosis_picth_forearm = col_double(),
+  kurtosis_yaw_forearm = col_double(),
+  skewness_roll_forearm = col_double(),
+  skewness_pitch_forearm = col_double(),
+  skewness_yaw_forearm = col_double(),
+  max_roll_forearm = col_double(),
+  max_picth_forearm = col_double(),
+  max_yaw_forearm = col_double(),
+  min_roll_forearm = col_double(),
+  min_pitch_forearm = col_double(),
+  min_yaw_forearm = col_double(),
+  amplitude_roll_forearm = col_double(),
+  amplitude_pitch_forearm = col_double(),
+  amplitude_yaw_forearm = col_double(),
+  total_accel_forearm = col_double(),
+  var_accel_forearm = col_double(),
+  avg_roll_forearm = col_double(),
+  stddev_roll_forearm = col_double(),
+  var_roll_forearm = col_double(),
+  avg_pitch_forearm = col_double(),
+  stddev_pitch_forearm = col_double(),
+  var_pitch_forearm = col_double(),
+  avg_yaw_forearm = col_double(),
+  stddev_yaw_forearm = col_double(),
+  var_yaw_forearm = col_double(),
+  gyros_forearm_x = col_double(),
+  gyros_forearm_y = col_double(),
+  gyros_forearm_z = col_double(),
+  accel_forearm_x = col_double(),
+  accel_forearm_y = col_double(),
+  accel_forearm_z = col_double(),
+  magnet_forearm_x = col_double(),
+  magnet_forearm_y = col_double(),
+  magnet_forearm_z = col_double(),
+  classe = col_character()
+  ))
+```
+
+## Clean and prepare training data
+
+Specify factor variables 
+```{r}
+training$user_name <- as_factor(training$user_name)
+training$new_window <- as_factor(training$new_window)
+training$classe <- as_factor(training$classe)
+```
+
+Many variables contain primarily missing values and there are too many to impute so we remove these variables. We remove the "...1" index variable as any correlation with the outcome would be spurious and unlikely to generalize. We also remove the "cvtd_timestamp" variable because it is redundant to the numerical time stamp variables.
+```{r}
+training_cln <- training %>%
+        select(where(~ sum(is.na(.)) == 0)) %>%
+        select(!c(...1, cvtd_timestamp))
+```
+
+## Model selection and training
+
+To select the type of model, we consider that our primary objective is prediction accuracy. We also consider that there are likely to be interactions between the large number of variables. We will thus use a random forest model as a classifier because they tend to be accurate and can accommodate nonlinear relationships. The slow speed and lack of interpretabiltiy of random forests aren't major concerns in this use case.
+
+To estimate out of sample accuracy, we will use 5-fold cross validation. This will be less likely to overestimate accuracy than the default bootstrap resampling method. Additionally, using 5-folds will be faster to compute than 10-folds.
+```{r}
+ctrl <- trainControl(method = "cv", number = 5)
+
+set.seed(1234)
+
+rfFit <- train(
+        classe ~ ., 
+        data = training_cln, 
+        method = "rf", 
+        trControl = ctrl)
+
+rfFit
+```
+The estimated out of sample accuracy of the best model is 99.9% using a maximum of 31 features at each split. 
+
+```{r}
+ggplot(rfFit)
+varImpPlot(rfFit$finalModel) 
+```
+
+## Import and prepare testing data
+
+Import testing data, manually specify column types as for training data
+```{r message=FALSE, warning=FALSE}
+testing <- read_csv("data/pml-testing.csv", 
+  col_types = cols(
+  ...1 = col_double(),
+  user_name = col_character(),
+  raw_timestamp_part_1 = col_double(),
+  raw_timestamp_part_2 = col_double(),
+  cvtd_timestamp = col_character(),
+  new_window = col_character(),
+  num_window = col_double(),
+  roll_belt = col_double(),
+  pitch_belt = col_double(),
+  yaw_belt = col_double(),
+  total_accel_belt = col_double(),
+  kurtosis_roll_belt = col_double(),
+  kurtosis_picth_belt = col_double(),
+  kurtosis_yaw_belt = col_double(),
+  skewness_roll_belt = col_double(),
+  skewness_roll_belt.1 = col_double(),
+  skewness_yaw_belt = col_double(),
+  max_roll_belt = col_double(),
+  max_picth_belt = col_double(),
+  max_yaw_belt = col_double(),
+  min_roll_belt = col_double(),
+  min_pitch_belt = col_double(),
+  min_yaw_belt = col_double(),
+  amplitude_roll_belt = col_double(),
+  amplitude_pitch_belt = col_double(),
+  amplitude_yaw_belt = col_double(),
+  var_total_accel_belt = col_double(),
+  avg_roll_belt = col_double(),
+  stddev_roll_belt = col_double(),
+  var_roll_belt = col_double(),
+  avg_pitch_belt = col_double(),
+  stddev_pitch_belt = col_double(),
+  var_pitch_belt = col_double(),
+  avg_yaw_belt = col_double(),
+  stddev_yaw_belt = col_double(),
+  var_yaw_belt = col_double(),
+  gyros_belt_x = col_double(),
+  gyros_belt_y = col_double(),
+  gyros_belt_z = col_double(),
+  accel_belt_x = col_double(),
+  accel_belt_y = col_double(),
+  accel_belt_z = col_double(),
+  magnet_belt_x = col_double(),
+  magnet_belt_y = col_double(),
+  magnet_belt_z = col_double(),
+  roll_arm = col_double(),
+  pitch_arm = col_double(),
+  yaw_arm = col_double(),
+  total_accel_arm = col_double(),
+  var_accel_arm = col_double(),
+  avg_roll_arm = col_double(),
+  stddev_roll_arm = col_double(),
+  var_roll_arm = col_double(),
+  avg_pitch_arm = col_double(),
+  stddev_pitch_arm = col_double(),
+  var_pitch_arm = col_double(),
+  avg_yaw_arm = col_double(),
+  stddev_yaw_arm = col_double(),
+  var_yaw_arm = col_double(),
+  gyros_arm_x = col_double(),
+  gyros_arm_y = col_double(),
+  gyros_arm_z = col_double(),
+  accel_arm_x = col_double(),
+  accel_arm_y = col_double(),
+  accel_arm_z = col_double(),
+  magnet_arm_x = col_double(),
+  magnet_arm_y = col_double(),
+  magnet_arm_z = col_double(),
+  kurtosis_roll_arm = col_double(),
+  kurtosis_picth_arm = col_double(),
+  kurtosis_yaw_arm = col_double(),
+  skewness_roll_arm = col_double(),
+  skewness_pitch_arm = col_double(),
+  skewness_yaw_arm = col_double(),
+  max_roll_arm = col_double(),
+  max_picth_arm = col_double(),
+  max_yaw_arm = col_double(),
+  min_roll_arm = col_double(),
+  min_pitch_arm = col_double(),
+  min_yaw_arm = col_double(),
+  amplitude_roll_arm = col_double(),
+  amplitude_pitch_arm = col_double(),
+  amplitude_yaw_arm = col_double(),
+  roll_dumbbell = col_double(),
+  pitch_dumbbell = col_double(),
+  yaw_dumbbell = col_double(),
+  kurtosis_roll_dumbbell = col_double(),
+  kurtosis_picth_dumbbell = col_double(),
+  kurtosis_yaw_dumbbell = col_double(),
+  skewness_roll_dumbbell = col_double(),
+  skewness_pitch_dumbbell = col_double(),
+  skewness_yaw_dumbbell = col_double(),
+  max_roll_dumbbell = col_double(),
+  max_picth_dumbbell = col_double(),
+  max_yaw_dumbbell = col_double(),
+  min_roll_dumbbell = col_double(),
+  min_pitch_dumbbell = col_double(),
+  min_yaw_dumbbell = col_double(),
+  amplitude_roll_dumbbell = col_double(),
+  amplitude_pitch_dumbbell = col_double(),
+  amplitude_yaw_dumbbell = col_double(),
+  total_accel_dumbbell = col_double(),
+  var_accel_dumbbell = col_double(),
+  avg_roll_dumbbell = col_double(),
+  stddev_roll_dumbbell = col_double(),
+  var_roll_dumbbell = col_double(),
+  avg_pitch_dumbbell = col_double(),
+  stddev_pitch_dumbbell = col_double(),
+  var_pitch_dumbbell = col_double(),
+  avg_yaw_dumbbell = col_double(),
+  stddev_yaw_dumbbell = col_double(),
+  var_yaw_dumbbell = col_double(),
+  gyros_dumbbell_x = col_double(),
+  gyros_dumbbell_y = col_double(),
+  gyros_dumbbell_z = col_double(),
+  accel_dumbbell_x = col_double(),
+  accel_dumbbell_y = col_double(),
+  accel_dumbbell_z = col_double(),
+  magnet_dumbbell_x = col_double(),
+  magnet_dumbbell_y = col_double(),
+  magnet_dumbbell_z = col_double(),
+  roll_forearm = col_double(),
+  pitch_forearm = col_double(),
+  yaw_forearm = col_double(),
+  kurtosis_roll_forearm = col_double(),
+  kurtosis_picth_forearm = col_double(),
+  kurtosis_yaw_forearm = col_double(),
+  skewness_roll_forearm = col_double(),
+  skewness_pitch_forearm = col_double(),
+  skewness_yaw_forearm = col_double(),
+  max_roll_forearm = col_double(),
+  max_picth_forearm = col_double(),
+  max_yaw_forearm = col_double(),
+  min_roll_forearm = col_double(),
+  min_pitch_forearm = col_double(),
+  min_yaw_forearm = col_double(),
+  amplitude_roll_forearm = col_double(),
+  amplitude_pitch_forearm = col_double(),
+  amplitude_yaw_forearm = col_double(),
+  total_accel_forearm = col_double(),
+  var_accel_forearm = col_double(),
+  avg_roll_forearm = col_double(),
+  stddev_roll_forearm = col_double(),
+  var_roll_forearm = col_double(),
+  avg_pitch_forearm = col_double(),
+  stddev_pitch_forearm = col_double(),
+  var_pitch_forearm = col_double(),
+  avg_yaw_forearm = col_double(),
+  stddev_yaw_forearm = col_double(),
+  var_yaw_forearm = col_double(),
+  gyros_forearm_x = col_double(),
+  gyros_forearm_y = col_double(),
+  gyros_forearm_z = col_double(),
+  accel_forearm_x = col_double(),
+  accel_forearm_y = col_double(),
+  accel_forearm_z = col_double(),
+  magnet_forearm_x = col_double(),
+  magnet_forearm_y = col_double(),
+  magnet_forearm_z = col_double(),
+  problem_id = col_character()
+  ))
+```
+
+Specify factor variables 
+```{r}
+testing$user_name <- as_factor(testing$user_name)
+testing$new_window <- as_factor(testing$new_window)
+testing$problem_id <- as_factor(testing$problem_id)
+```
+
+## Predict values from testing data
+
+```{r}
+pred <- predict(rfFit, testing)
+
+tibble(problem_id = testing$problem_id, predicted = pred)
+```
+
